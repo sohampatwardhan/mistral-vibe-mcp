@@ -1,0 +1,45 @@
+{
+  "name": "mistral-vibe-mcp",
+  "version": "0.1.0",
+  "description": "MCP stdio server wrapping the Mistral Vibe CLI (vibe_run, vibe_resume, vibe_manage).",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "mistral-vibe-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mistral",
+    "vibe",
+    "mistral-vibe",
+    "cli",
+    "agent"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
