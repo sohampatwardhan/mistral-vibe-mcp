@@ -136,3 +136,10 @@ flowchart TD
   - `parse.test.ts`: JSON output, text fallback, session-id extraction, cost summary extraction.
 - Runner/manage are integration-only; covered by a mockable `bin` param but not required to pass CI.
 - CI: GitHub Actions, Node 20, `npm ci && npm run build && npm test`.
+
+## Agent Skills (add-on)
+
+The repo also ships Agent Skills under `skills/<name>/SKILL.md` (vercel-labs `npx skills`
+discovery path): `mistral-vibe` (umbrella), `vibe-run`, `vibe-resume`, `vibe-manage`. Each has
+YAML frontmatter (`name` matching the directory, `description` of what/when) and short,
+actionable instructions for driving THIS server's MCP tools — not a copy of Vibe docs.

@@ -66,3 +66,7 @@ flowchart TD
   pinned across versions, so `parse.ts` is tolerant (JSON.parse -> last JSON line -> raw text)
   and scrapes the session id heuristically.
 - Safe default: `auto_approve` is false unless explicitly set.
+
+- [x] 7. Agent Skills
+  - skills/{mistral-vibe,vibe-run,vibe-resume,vibe-manage}/SKILL.md; README "Agent Skills" section
+  - _Requirements: 6.4_

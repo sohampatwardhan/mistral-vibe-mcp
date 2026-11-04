@@ -180,6 +180,30 @@ MCP client <-> (stdio/JSON-RPC) <-> index.ts
 The server never builds shell strings; it spawns `vibe` with an argv array, so prompts and
 tool names can't inject shell commands.
 
+## Agent Skills
+
+This repo ships [Agent Skills](https://github.com/vercel-labs/skills) so an agent can learn how
+to drive these MCP tools. Install them with the `skills` CLI:
+
+```bash
+# all skills in this repo
+npx skills add sohampatwardhan/mistral-vibe-mcp
+
+# a specific skill
+npx skills add sohampatwardhan/mistral-vibe-mcp --skill vibe-run
+```
+
+Skills live under `skills/<name>/SKILL.md` (the standard `npx skills` discovery path):
+
+| Skill | Teaches |
+|-------|---------|
+| `mistral-vibe` | Umbrella overview + when to load the others. |
+| `vibe-run` | Starting a new session: prompt, `project_dir`, guardrails, agent profiles, `auto_approve` caution. |
+| `vibe-resume` | Resume (`session_id`) vs continue precedence and when to use each. |
+| `vibe-manage` | `status`/`install`/`update` via `uv`, and `VIBE_BIN`. |
+
+These skills teach how to use **this server's** tools; they are not a copy of Vibe's own docs.
+
 ## License
 
 MIT - see [LICENSE](./LICENSE).
