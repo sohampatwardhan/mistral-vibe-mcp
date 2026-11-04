@@ -5,10 +5,19 @@
  * zod-to-json-schema internals; zod is still used for runtime validation of inputs.
  */
 
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { z } from "zod";
-import { buildRunArgs, buildResumeArgs, resumeHasOverride } from "./args.js";
-import { parseVibeOutput } from "./parse.js";
-import { runVibe, VibeNotFoundError } from "./runner.js";
+import {
+  buildRunArgs,
+  buildResumeArgs,
+  resumeHasOverride,
+  resumeUsesDefaultPrompt,
+  DEFAULT_RESUME_PROMPT,
+} from "./args.js";
+import { parseExport, parseVibeOutput } from "./parse.js";
+import { resolveTimeoutMs, runVibe, VibeNotFoundError } from "./runner.js";
 import { manage, type ManageAction } from "./manage.js";
 import { classifyExit } from "./types.js";
 
@@ -89,7 +98,7 @@ export const toolDefinitions: ToolDef[] = [
     inputSchema: {
       type: "object",
       properties: {
-        prompt: { type: "string", description: "Optional follow-up instruction." },
+        prompt: { type: "string", description: `Follow-up instruction. Defaults to "${DEFAULT_RESUME_PROMPT}"` },
         session_id: { type: "string", description: "Resume a specific session (--resume). Partial ids accepted." },
         continue: { type: "boolean", description: "Continue the last session (--continue). Default when no session_id." },
         ...commonProps,
@@ -141,30 +150,67 @@ function truncate(s: string, n = 4000): string {
   return s.length > n ? s.slice(0, n) + `\n…[truncated ${s.length - n} chars]` : s;
 }
 
-async function handleVibeExec(args: string[], cwd: string, notes: string[]): Promise<ToolResult> {
+/** Read and parse <dir>/export.json; null if Vibe did not write one. */
+async function readExport(dir: string) {
   try {
-    const res = await runVibe(args, { cwd });
+    return parseExport(await readFile(join(dir, "export.json"), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function handleVibeExec(
+  args: string[],
+  cwd: string,
+  notes: string[],
+  timeLimit: number | undefined,
+): Promise<ToolResult> {
+  // Vibe writes export.json (session id, cost, outcome) to --output-dir on every exit;
+  // it is far more reliable than scraping stdout. One private temp dir per run.
+  const outputDir = await mkdtemp(join(tmpdir(), "mistral-vibe-mcp-"));
+  try {
+    const timeoutMs = resolveTimeoutMs(timeLimit);
+    const res = await runVibe([...args, `--output-dir=${outputDir}`], { cwd, timeoutMs });
     const parsed = parseVibeOutput(res.stdout);
+    const exported = await readExport(outputDir);
+    const sessionId = exported?.sessionId ?? parsed.sessionId;
+    const summary = exported?.summary ?? parsed.summary;
     const exitClass = classifyExit(res.code);
+    if (res.timedOut) {
+      notes.push(`Stopped by the server's hard timeout after ${timeoutMs / 1000}s.`);
+    }
     const payload = {
-      ok: res.code === 0,
+      ok: res.code === 0 && !res.timedOut,
       exitCode: res.code,
       exitClass,
       timedOut: res.timedOut,
-      sessionId: parsed.sessionId,
-      summary: parsed.summary,
+      sessionId,
+      summary,
+      outcome: exported?.outcome ?? undefined,
+      stopReason: exported?.stopReason ?? undefined,
+      error: exported?.error ?? undefined,
       output: parsed.json,
+      // Text-mode (or unparseable) output would otherwise be lost.
+      text: parsed.json === null && parsed.text ? truncate(parsed.text, 100_000) : undefined,
       notes: notes.length ? notes : undefined,
       stderr: res.stderr ? truncate(res.stderr, 2000) : undefined,
     };
+    const status = res.timedOut
+      ? "Vibe timed out"
+      : res.code === 0
+        ? "Vibe finished"
+        : `Vibe exited ${res.code} (${exitClass})`;
     const human =
-      (res.code === 0 ? "Vibe finished" : `Vibe exited ${res.code} (${exitClass})`) +
-      (parsed.sessionId ? ` — session ${parsed.sessionId}` : "") +
-      (parsed.summary?.cost !== undefined ? ` — ~$${parsed.summary.cost}` : "");
+      status +
+      (sessionId ? ` — session ${sessionId}` : "") +
+      (summary?.cost !== undefined ? ` — ~$${summary.cost}` : "") +
+      (exported?.error ? ` — ${exported.error}` : "");
     return ok(payload, human);
   } catch (err) {
     if (err instanceof VibeNotFoundError) return fail(err.message);
     return fail(`Vibe execution failed: ${(err as Error).message}`);
+  } finally {
+    await rm(outputDir, { recursive: true, force: true });
   }
 }
 
@@ -174,7 +220,7 @@ export async function callTool(name: string, rawArgs: unknown): Promise<ToolResu
       case "vibe_run": {
         const input = runSchema.parse(rawArgs ?? {});
         const cwd = input.project_dir ?? process.cwd();
-        return handleVibeExec(buildRunArgs(input), cwd, []);
+        return handleVibeExec(buildRunArgs(input), cwd, [], input.time_limit);
       }
       case "vibe_resume": {
         const input = resumeSchema.parse(rawArgs ?? {});
@@ -183,7 +229,10 @@ export async function callTool(name: string, rawArgs: unknown): Promise<ToolResu
         if (resumeHasOverride(input)) {
           notes.push("Both session_id and continue were provided; session_id takes precedence.");
         }
-        return handleVibeExec(buildResumeArgs(input), cwd, notes);
+        if (resumeUsesDefaultPrompt(input)) {
+          notes.push(`No prompt given; sent the default follow-up: ${DEFAULT_RESUME_PROMPT}`);
+        }
+        return handleVibeExec(buildResumeArgs(input), cwd, notes, input.time_limit);
       }
       case "vibe_manage": {
         const input = manageSchema.parse(rawArgs ?? {});
@@ -195,7 +244,7 @@ export async function callTool(name: string, rawArgs: unknown): Promise<ToolResu
     }
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return fail(`Invalid arguments for ${name}: ${err.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
+      return fail(`Invalid arguments for ${name}: ${err.issues.map((i) => `${i.path.map(String).join(".")}: ${i.message}`).join("; ")}`);
     }
     return fail(`Tool ${name} failed: ${(err as Error).message}`);
   }

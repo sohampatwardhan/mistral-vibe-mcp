@@ -25,10 +25,13 @@ Use it to hand a self-contained coding task to Vibe and get structured results b
 A human summary line plus a JSON block:
 
 ```json
-{ "ok": true, "exitCode": 0, "exitClass": "finished",
-  "sessionId": "abc123", "summary": { "cost": 0.01, "turns": 3 },
-  "output": { }, "stderr": "" }
+{ "ok": true, "exitCode": 0, "exitClass": "finished", "timedOut": false,
+  "sessionId": "28610fb0-6989-bbd5-220f-4bd5b1a0acb0", "summary": { "cost": 0.01 },
+  "outcome": "completed", "output": { }, "stderr": "" }
 ```
+
+With `output: "text"` the answer is in `text` (and `output` is null). On failure, `error`
+carries Vibe's message. `timedOut: true` means the server's hard timeout stopped the run.
 
 `exitClass`: `finished` (0), `start-or-config-error` (1), `api-or-runtime-error` (2),
 `stopped-early` (3). Capture `sessionId` so you can resume.

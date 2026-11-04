@@ -48,6 +48,17 @@ export interface VibeResult {
   summary: VibeSummary | null;
 }
 
+/** Fields read from the export.json Vibe writes to `--output-dir` on every exit. */
+export interface VibeExport {
+  sessionId: string | null;
+  summary: VibeSummary | null;
+  /** e.g. "completed", "infrastructure_failure". */
+  outcome: string | null;
+  stopReason: string | null;
+  /** Error message when the run failed. */
+  error: string | null;
+}
+
 export interface VibeSummary {
   cost?: number;
   turns?: number;
