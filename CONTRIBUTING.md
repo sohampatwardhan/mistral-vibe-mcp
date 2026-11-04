@@ -30,7 +30,9 @@ To try the server against your own Vibe install, build it and point an MCP clien
 
 ## Before you open a PR
 
-- `npm test` and `npm run build` pass.
+- `npm test` and `npm run build` pass. CI (`.github/workflows/ci.yml`) runs the same
+  checks on every PR, on Node 20, 22 and 24 and on macOS, plus `npm audit` for runtime
+  dependencies. Wait for CI to pass before merging.
 - A bug fix comes with a test that failed before the fix.
 - `CHANGELOG.md` has an entry under **Unreleased** for anything a user would notice.
 - If a tool's inputs or result fields change, update the README and the matching skill in

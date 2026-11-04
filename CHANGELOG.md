@@ -28,6 +28,10 @@ All notable changes to this project are recorded here. The format follows
   from the `export.json` Vibe writes to a private temporary `--output-dir`. ([#1])
 - Tests for the process runner, using real child processes, and for the tool handlers end
   to end, using a fake `vibe` script. ([#1])
+- GitHub Actions CI on every push to `main` and every pull request. It builds, typechecks
+  the tests and runs them on Node 20, 22 and 24 (Ubuntu) and Node 24 (macOS), and audits
+  runtime dependencies for high or critical advisories.
+- `CHANGELOG.md` and `CONTRIBUTING.md`. ([#2])
 
 ### Changed
 
@@ -54,3 +58,4 @@ Initial version. Not published to npm.
 [Unreleased]: https://github.com/sohampatwardhan/mistral-vibe-mcp/compare/0662f151722864f40825e0d27b059204f8fd0e6e...main
 [0.1.0]: https://github.com/sohampatwardhan/mistral-vibe-mcp/tree/0662f151722864f40825e0d27b059204f8fd0e6e
 [#1]: https://github.com/sohampatwardhan/mistral-vibe-mcp/pull/1
+[#2]: https://github.com/sohampatwardhan/mistral-vibe-mcp/pull/2
