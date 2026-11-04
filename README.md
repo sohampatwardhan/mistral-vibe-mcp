@@ -37,7 +37,9 @@ of an earlier `vibe-mcp` project but shares no code with it.
 
 ### `vibe_resume`
 
-Same fields as `vibe_run` (prompt optional), plus:
+Same fields as `vibe_run`, plus the ones below. `prompt` is optional: when omitted, the
+server sends `"Continue where you left off."` (Vibe only runs headless when given a prompt)
+and says so in `notes`.
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -61,12 +63,22 @@ Each `vibe_run` / `vibe_resume` call returns a human summary line plus a JSON bl
   "ok": true,
   "exitCode": 0,
   "exitClass": "finished",
-  "sessionId": "abc123",
-  "summary": { "cost": 0.012, "turns": 3, "tokens": 2048 },
+  "timedOut": false,
+  "sessionId": "28610fb0-6989-bbd5-220f-4bd5b1a0acb0",
+  "summary": { "cost": 0.012, "tokens": 2048 },
+  "outcome": "completed",
+  "stopReason": "end_turn",
   "output": { "...": "parsed vibe --output json, or null" },
+  "text": "raw stdout, only when output is not JSON (e.g. output: \"text\")",
+  "error": "Vibe's error message, when the run failed",
+  "notes": ["..."],
   "stderr": "..."
 }
 ```
+
+`sessionId`, `summary`, `outcome`, `stopReason` and `error` come from the `export.json` Vibe
+writes to a private temporary `--output-dir` on every exit (deleted afterwards); stdout is
+only scraped as a fallback.
 
 `exitClass` maps Vibe's documented exit codes: `0 finished`, `1 start-or-config-error`,
 `2 api-or-runtime-error`, `3 stopped-early`.
@@ -138,8 +150,10 @@ args = ["/abs/path/to/mistral-vibe-mcp/dist/index.js"]
 }
 ```
 
-> Optional env: add `"env": { "VIBE_BIN": "/path/to/vibe" }` to any of the above if `vibe`
-> isn't on PATH for the client process.
+> Optional env (add an `"env": { ... }` block to any of the above):
+> - `VIBE_BIN`: path to `vibe` if it isn't on PATH for the client process.
+> - `VIBE_MCP_TIMEOUT_SECONDS`: hard timeout for a run without `time_limit` (default 1800).
+>   With `time_limit`, the server lets Vibe stop itself and only kills it 60s after that.
 
 ## Example calls
 
@@ -163,8 +177,9 @@ args = ["/abs/path/to/mistral-vibe-mcp/dist/index.js"]
 - `npm run build` typechecks and emits `dist/`.
 - `npm run dev` runs the compiler in watch mode.
 
-Tests cover the pure core (CLI argument building, output parsing, session-id extraction).
-Process spawning is isolated in `src/runner.ts` so the rest of the code stays testable.
+Tests cover the pure core (CLI argument building, output and export.json parsing), the
+process runner (timeouts, closed stdin) against real child processes, and the tool handlers
+end to end against a fake `vibe` script (`test/fixtures/fake-vibe.mjs`).
 
 ## How it works
 

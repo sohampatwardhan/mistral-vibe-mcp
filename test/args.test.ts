@@ -1,13 +1,26 @@
 import { describe, it, expect } from "vitest";
-import { buildRunArgs, buildResumeArgs, resumeHasOverride } from "../src/args.js";
+import {
+  buildRunArgs,
+  buildResumeArgs,
+  resumeHasOverride,
+  DEFAULT_RESUME_PROMPT,
+} from "../src/args.js";
 
 describe("buildRunArgs", () => {
   it("puts prompt first and defaults output to json", () => {
     const args = buildRunArgs({ prompt: "hello" });
-    expect(args.slice(0, 2)).toEqual(["--prompt", "hello"]);
+    expect(args[0]).toBe("--prompt=hello");
     expect(args).toContain("--output");
     const i = args.indexOf("--output");
     expect(args[i + 1]).toBe("json");
+  });
+
+  it("keeps a prompt that starts with a dash attached to --prompt", () => {
+    // Vibe's --prompt takes an optional value, so `--prompt "-n x"` is parsed as an
+    // unknown flag `-n`. The `--prompt=<value>` form is always unambiguous.
+    const args = buildRunArgs({ prompt: "- fix the bug\n- add tests" });
+    expect(args[0]).toBe("--prompt=- fix the bug\n- add tests");
+    expect(args).not.toContain("- fix the bug\n- add tests");
   });
 
   it("maps scalar guardrail flags", () => {
@@ -26,8 +39,8 @@ describe("buildRunArgs", () => {
         "--max-tokens", "1000",
         "--max-price", "0.5",
         "--time-limit", "120",
-        "--model", "mistral-large",
-        "--agent", "accept-edits",
+        "--model=mistral-large",
+        "--agent=accept-edits",
       ]),
     );
   });
@@ -38,9 +51,11 @@ describe("buildRunArgs", () => {
       enabled_tools: ["read", "re:write.*"],
       disabled_tools: ["shell"],
     });
-    const enabled = args.filter((_, idx) => args[idx - 1] === "--enabled-tools");
-    expect(enabled).toEqual(["read", "re:write.*"]);
-    expect(args[args.indexOf("--disabled-tools") + 1]).toBe("shell");
+    expect(args.filter((a) => a.startsWith("--enabled-tools="))).toEqual([
+      "--enabled-tools=read",
+      "--enabled-tools=re:write.*",
+    ]);
+    expect(args).toContain("--disabled-tools=shell");
   });
 
   it("only emits boolean flags when true", () => {
@@ -54,8 +69,7 @@ describe("buildRunArgs", () => {
 
   it("handles worktree as boolean and as name", () => {
     expect(buildRunArgs({ prompt: "p", worktree: true })).toContain("--worktree");
-    const named = buildRunArgs({ prompt: "p", worktree: "feature-x" });
-    expect(named[named.indexOf("--worktree") + 1]).toBe("feature-x");
+    expect(buildRunArgs({ prompt: "p", worktree: "feature-x" })).toContain("--worktree=feature-x");
   });
 
   it("respects an explicit output override", () => {
@@ -67,14 +81,14 @@ describe("buildRunArgs", () => {
 describe("buildResumeArgs", () => {
   it("uses --resume with a session id", () => {
     const args = buildResumeArgs({ session_id: "abc123", prompt: "go on" });
-    expect(args).toEqual(expect.arrayContaining(["--resume", "abc123", "--prompt", "go on"]));
+    expect(args).toEqual(expect.arrayContaining(["--resume=abc123", "--prompt=go on"]));
     expect(args).not.toContain("--continue");
   });
 
   it("uses --continue when continue:true and no session id", () => {
-    const args = buildResumeArgs({ continue: true });
+    const args = buildResumeArgs({ continue: true, prompt: "p" });
     expect(args).toContain("--continue");
-    expect(args).not.toContain("--resume");
+    expect(args.some((a) => a.startsWith("--resume"))).toBe(false);
   });
 
   it("defaults to --continue when nothing is specified", () => {
@@ -86,12 +100,20 @@ describe("buildResumeArgs", () => {
     const input = { session_id: "s1", continue: true };
     expect(resumeHasOverride(input)).toBe(true);
     const args = buildResumeArgs(input);
-    expect(args).toContain("--resume");
+    expect(args).toContain("--resume=s1");
     expect(args).not.toContain("--continue");
   });
 
-  it("omits --prompt when no follow-up prompt is given", () => {
-    const args = buildResumeArgs({ session_id: "s1" });
-    expect(args).not.toContain("--prompt");
+  it("sends a default prompt when none is given, so Vibe stays in headless mode", () => {
+    // Without -p/--prompt Vibe starts its interactive UI and never exits.
+    for (const prompt of [undefined, "", "   "]) {
+      const args = buildResumeArgs({ session_id: "s1", prompt });
+      expect(args).toContain(`--prompt=${DEFAULT_RESUME_PROMPT}`);
+    }
+  });
+
+  it("keeps a resume prompt that starts with a dash attached to --prompt", () => {
+    const args = buildResumeArgs({ prompt: "--now add tests" });
+    expect(args).toContain("--prompt=--now add tests");
   });
 });

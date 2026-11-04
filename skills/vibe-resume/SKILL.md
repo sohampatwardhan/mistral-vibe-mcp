@@ -35,7 +35,8 @@ follow-ups.
 
 ## prompt is optional
 
-Omit `prompt` to let Vibe resume where it left off, or include one to steer the next step.
+Omit `prompt` and the server sends `"Continue where you left off."` (Vibe needs a prompt to run
+headless); the result's `notes` says so. Include one to steer the next step.
 
 ## After the call
 
