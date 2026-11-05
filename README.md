@@ -181,6 +181,9 @@ Tests cover the pure core (CLI argument building, output and export.json parsing
 process runner (timeouts, closed stdin) against real child processes, and the tool handlers
 end to end against a fake `vibe` script (`test/fixtures/fake-vibe.mjs`).
 
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the PR workflow and code rules, and
+[CHANGELOG.md](./CHANGELOG.md) for what changed in each version.
+
 ## How it works
 
 ```
